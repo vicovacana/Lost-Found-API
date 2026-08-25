@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Lost_Found</RootNamespace>
+    <AssemblyName>Lost_Found</AssemblyName>
     <UserSecretsId>7da1ef74-fdf0-4b07-847f-ba47eb9a1168</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
