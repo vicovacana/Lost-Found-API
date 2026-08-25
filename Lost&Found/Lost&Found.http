@@ -1,6 +1,132 @@
 @Lost_Found_HostAddress = http://localhost:5023
 
-GET {{Lost_Found_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Login as the seeded admin (username "admin", password "Admin123!")
+# @name adminLogin
+POST {{Lost_Found_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "korisnickoIme": "admin",
+  "lozinka": "Admin123!"
+}
+
+### 2. Register a standard user who will create a listing
+# @name registerMarko
+POST {{Lost_Found_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "korisnickoIme": "marko",
+  "email": "marko@example.com",
+  "lozinka": "Marko123!"
+}
+
+### 3. Register a second standard user who will claim it
+# @name registerAna
+POST {{Lost_Found_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "korisnickoIme": "ana",
+  "email": "ana@example.com",
+  "lozinka": "Ana12345!"
+}
+
+### 4. Marko creates a listing (lost wallet)
+# @name createOglas
+POST {{Lost_Found_HostAddress}}/api/oglasi
+Content-Type: application/json
+Authorization: Bearer {{registerMarko.response.body.$.token}}
+
+{
+  "naziv": "Crni novcanik",
+  "opis": "Izgubljen u parku",
+  "tip": 0,
+  "latitude": 44.8125,
+  "longitude": 20.4612
+}
+
+### 5. Anyone (no token) can browse listings
+GET {{Lost_Found_HostAddress}}/api/oglasi
+
+### 6. Ana claims the listing
+# @name createPotrazivanje
+POST {{Lost_Found_HostAddress}}/api/oglasi/{{createOglas.response.body.$.oglasId}}/potrazivanja
+Authorization: Bearer {{registerAna.response.body.$.token}}
+
+### 7. Admin self-assigns to the listing
+PATCH {{Lost_Found_HostAddress}}/api/oglasi/{{createOglas.response.body.$.oglasId}}/admin
+Content-Type: application/json
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+{}
+
+### 8. Admin opens a conversation for the listing
+# @name openRazgovor
+POST {{Lost_Found_HostAddress}}/api/oglasi/{{createOglas.response.body.$.oglasId}}/razgovor
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### 9. Marko sends a message
+POST {{Lost_Found_HostAddress}}/api/razgovori/{{openRazgovor.response.body.$.razgovorId}}/poruke
+Content-Type: application/json
+Authorization: Bearer {{registerMarko.response.body.$.token}}
+
+{
+  "sadrzaj": "Ovo je moj novcanik, evo dokaza."
+}
+
+### 10. Ana sends a message
+POST {{Lost_Found_HostAddress}}/api/razgovori/{{openRazgovor.response.body.$.razgovorId}}/poruke
+Content-Type: application/json
+Authorization: Bearer {{registerAna.response.body.$.token}}
+
+{
+  "sadrzaj": "Ja sam ga nasla u parku."
+}
+
+### 11. Read the full conversation (any participant, e.g. admin)
+GET {{Lost_Found_HostAddress}}/api/razgovori/{{openRazgovor.response.body.$.razgovorId}}/poruke
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+### 12. Admin accepts ana's claim
+PATCH {{Lost_Found_HostAddress}}/api/oglasi/{{createOglas.response.body.$.oglasId}}/potrazivanja/{{createPotrazivanje.response.body.$.korisnikId}}/status
+Content-Type: application/json
+Authorization: Bearer {{adminLogin.response.body.$.token}}
+
+{
+  "status": 1
+}
+
+### --- Negative checks ---
+
+### 13. Creating a listing with no token -> expect 401
+POST {{Lost_Found_HostAddress}}/api/oglasi
+Content-Type: application/json
+
+{
+  "naziv": "x",
+  "opis": "y",
+  "tip": 0
+}
+
+### 14. A non-admin trying to assign an admin -> expect 403
+PATCH {{Lost_Found_HostAddress}}/api/oglasi/{{createOglas.response.body.$.oglasId}}/admin
+Content-Type: application/json
+Authorization: Bearer {{registerMarko.response.body.$.token}}
+
+{}
+
+### 15. Register an unrelated third user, then try to read the conversation -> expect 403
+# @name registerStranac
+POST {{Lost_Found_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "korisnickoIme": "stranac",
+  "email": "stranac@example.com",
+  "lozinka": "Stranac123!"
+}
 
 ###
+GET {{Lost_Found_HostAddress}}/api/razgovori/{{openRazgovor.response.body.$.razgovorId}}/poruke
+Authorization: Bearer {{registerStranac.response.body.$.token}}
